@@ -100,3 +100,46 @@ export default function PumpaApp() {
     </div>
   );
 }
+// Firebase + React проект за корисникот
+
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { useState } from "react";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+export default function Home() {
+  const [text, setText] = useState("");
+
+  const addData = async () => {
+    try {
+      await addDoc(collection(db, "pumps"), { text });
+      alert("Data added successfully!");
+    } catch (error) {
+      console.error("Error adding document: ", error);
+    }
+  };
+
+  return (
+    <div>
+      <h1>React + Firebase App</h1>
+      <input
+        type="text"
+        placeholder="Enter text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button onClick={addData}>Add to Firestore</button>
+    </div>
+  );
+}
