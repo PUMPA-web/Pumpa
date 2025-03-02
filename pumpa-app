@@ -1,0 +1,81 @@
+import { useState, useEffect } from "react";
+import { db } from "./firebase";
+import { collection, addDoc, doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
+
+const App = () => {
+    const [pumps, setPumps] = useState([]);
+    const [newPump, setNewPump] = useState({ title: "", expiration: 1 });
+    
+    useEffect(() => {
+        const unsubscribe = onSnapshot(collection(db, "pumps"), (snapshot) => {
+            setPumps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handleCreatePump = async () => {
+        if (!newPump.title) return;
+        const newExpiration = Date.now() + newPump.expiration * 3600000;
+        const docRef = await addDoc(collection(db, "pumps"), { ...newPump, expiration: newExpiration, likes: 0, comments: [] });
+        setPumps(prevPumps => [...prevPumps, { id: docRef.id, ...newPump, likes: 0, comments: [] }]);
+        setNewPump({ title: "", expiration: 1 });
+    };
+
+    const handleLikePump = async (pumpId) => {
+        const pumpRef = doc(db, "pumps", pumpId);
+        const pumpSnapshot = await getDoc(pumpRef);
+        if (!pumpSnapshot.exists()) return;
+        
+        const pumpData = pumpSnapshot.data();
+        await updateDoc(pumpRef, { likes: (pumpData.likes || 0) + 1 });
+
+        setPumps(prevPumps => 
+            prevPumps.map(p => 
+                p.id === pumpId ? { ...p, likes: (pumpData.likes || 0) + 1 } : p
+            )
+        );
+    };
+
+    const handleCommentPump = async (pumpId, comment) => {
+        if (!comment.trim()) return;
+        const pumpRef = doc(db, "pumps", pumpId);
+        const pumpSnapshot = await getDoc(pumpRef);
+        if (!pumpSnapshot.exists()) return;
+        
+        const pumpData = pumpSnapshot.data();
+        const updatedComments = [...(pumpData.comments || []), comment];
+        await updateDoc(pumpRef, { comments: updatedComments });
+
+        setPumps(prevPumps => 
+            prevPumps.map(p => 
+                p.id === pumpId ? { ...p, comments: updatedComments } : p
+            )
+        );
+    };
+
+    return (
+        <div>
+            <h1>Pumps</h1>
+            <input
+                type="text"
+                placeholder="Pump Title"
+                value={newPump.title}
+                onChange={(e) => setNewPump({ ...newPump, title: e.target.value })}
+            />
+            <button onClick={handleCreatePump}>Create Pump</button>
+            <ul>
+                {pumps.map(pump => (
+                    <li key={pump.id}>
+                        {pump.title} - Likes: {pump.likes}
+                        <button onClick={() => handleLikePump(pump.id)}>Like</button>
+                        <input type="text" placeholder="Comment" onKeyDown={(e) => {
+                            if (e.key === "Enter") handleCommentPump(pump.id, e.target.value);
+                        }} />
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+export default App;
